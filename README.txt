@@ -3,7 +3,7 @@ Memo
 Use -GS.f files to calculate coefficients reflecting forcing factors
 dsw.f file calculates dynamic and steady state simulations 
 
-Need blas library. 
+Need blas library (e.g., http://www.openblas.net/).  
 
 Fig7-9 are made using a result from sensitivity analysis.
 
