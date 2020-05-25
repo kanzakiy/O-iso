@@ -3,6 +3,8 @@ Memo
 Use -GS.f files to calculate coefficients reflecting forcing factors
 dsw.f file calculates dynamic and steady state simulations 
 
+Need blas library. 
+
 Fig7-9 are made using a result from sensitivity analysis.
 
 Sensitivity analysis is made using -GS-sense.f files
