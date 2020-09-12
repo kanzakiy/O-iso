@@ -3,16 +3,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+def d2dp(d):
+    dp = 1e3*np.log(d*1e-3+1.)
+    return dp
+    
+def d2Dp(d17,d18):
+    slope = 0.5305
+    intcpt = 0.
+    Dp = d2dp(d17)-(slope*d2dp(d18)+intcpt)
+    return Dp
+    
 outdir = '../oiso_output/'
 
 iso = 'd18'
 # iso = 'd17'
-# iso = 'capd17'
+iso = 'capd17'
 
 dr_cw = np.loadtxt(outdir + iso+'r_cw_dyn.txt')
 dr_ha1 = np.loadtxt(outdir + iso+'rp_ha_1_dyn.txt')
 dr_ha2 = np.loadtxt(outdir + iso+'rp_ha_2_dyn.txt')
 dr_ha3 = np.loadtxt(outdir + iso+'rp_ha_3_dyn.txt')
+
+sample = np.loadtxt('./bindeman18_rev.txt')
 
 figsize = (8,5)
 fig = plt.figure(figsize=figsize)
@@ -49,6 +61,13 @@ for i in range(ny):
         # else:axes[i][j].set_yticklabels([])
         
         axes[i][j].text(0.5,1.02,titles[i][j],horizontalalignment='center',transform=axes[i][j].transAxes)
+        
+        if titles[i][j] == 'Shale':
+            if iso == 'd18': axes[i][j].plot(sample[:,0]*1e3,sample[:,2],'o',markeredgecolor = 'k',markerfacecolor = 'w')
+            if iso == 'd17': axes[i][j].plot(sample[:,0]*1e3,sample[:,1],'o',markeredgecolor = 'k',markerfacecolor = 'w')
+            if iso == 'capd17': axes[i][j].plot(sample[:,0]*1e3,d2Dp(sample[:,1],sample[:,2]),'o',markeredgecolor = 'k',markerfacecolor = 'w')
+        
+        axes[i][j].set_xlim(600,-30)
         
 
 fig.align_labels(axes)
