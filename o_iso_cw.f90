@@ -1,11 +1,11 @@
-! program o_iso_cw_main
-! implicit none
-
+module o_iso_cw_mod
+use o_iso_ref_mod
+implicit none
 ! call o_iso_cw_sense_dsw_prof  
 ! call o_iso_cw_sense_dsw_Phan
 ! call o_iso_cw_dr_Phan
 ! endprogram o_iso_cw_main
-
+contains
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -22,16 +22,18 @@ real(kind=8) :: tempcw = 15.0d0
 real(kind=8) :: ztot = 20.0d0
 real(kind=8) :: sat = 0.50d0
 real(kind=8) :: e = 50.0d0
+real(kind=8) :: tempcw_max = 60.0d0
 
 real(kind=8) :: j1,j2,j3,cdf,shf,dsf
 
 integer,parameter :: n1 = 11
 integer,parameter :: nz = 200
 integer,parameter :: niso = 2
+integer,parameter :: ntemp = 11
 
 real(kind=8) beta_eq, beta_kin, lambda, gamma
 
-integer iz, iiso, iiso2
+integer iz, iiso, iiso2, itemp
 
 real(kind=8),dimension(nz) :: z
 real(kind=8),dimension(niso,nz) :: fr,fp
@@ -56,18 +58,18 @@ beta_eq_model = 'sharp16'
 beta_eq = t2beta_eq(tempcw+273.15d0,beta_eq_model) ! Sharp et al. (2016)
 beta_kin = beta_eq
 beta_kin = 1d0 ! this assume kinetics of 17O/16O exchange is not different from that of 18O/16O
+if (switch_KIE) beta_kin = beta_eq
 
 lambda = 0.5305d0
 gamma = 0d0
 
-rstd(1) = 2.0052d-3 
-rstd(2) = 3.799d-4 
+rstd(1) = rsmow_18 
+rstd(2) = rsmow_17 
 dsw(1) = 0d0
 dsw(2) = 0d0
 dsw(2) = dp2d(mwl_Luz(dsw(1),rstd(1)),rstd(2))
-doc(1) = 5.7d0 
-doc(2) = 2.86d0 
-! doc(2) = 3.0d0 
+doc(1) = d18_mc 
+doc(2) = d17_mc 
 alfacw(1) = exp(25.0d0/1d3)
 alfacw(1) = alfacw_savin(tempcw + 273.0d0)
 alfacw_model = 'savin'
@@ -106,11 +108,27 @@ enddo
 close(20)
 
 call o_iso_cw_sense_dsw( &
-    & w,q,poro,k1,tau,n1,nz,doc,rstd,alfacw,sat,e,tempcw,niso,lambda,gamma  &!input 
+    & w,q,poro,k1,tau,n1,nz,doc,rstd,alfacw,sat,e,tempcw,niso,lambda,gamma,.false.  &!input 
     & ,slp,itcpt  &! output 
     )
 
 print *, slp,itcpt
+
+
+do itemp = 1,ntemp
+    tempcw = (itemp-1d0)/(ntemp-1d0)*tempcw_max
+    alfacw(1) = exp(25.0d0/1d3)
+    alfacw(1) = alfacw_savin(tempcw + 273.0d0)
+    alfacw_model = 'savin'
+    alfacw(1) = t2alfacw(tempcw + 273.0d0,alfacw_model)
+    alfacw(2) = alfacw(1)**beta_eq
+    k1(1) = 10.0d0**(-8.50d0)
+    k1(2) = k1(1)**beta_kin
+    call o_iso_cw_sense_dsw( &
+        & w,q,poro,k1,tau,n1,nz,doc,rstd,alfacw,sat,e,tempcw,niso,lambda,gamma,.true.  &!input 
+        & ,slp,itcpt  &! output 
+        )
+enddo
 
 ! call o_iso_cw_sense_Phan
 
@@ -121,13 +139,13 @@ endsubroutine o_iso_cw_sense_dsw_prof
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 subroutine o_iso_cw_sense_dsw( &
-    & w,q,poro,k1,tau,n1,nz,doc,rstd,alfacw,sat,e,tempcw,niso,lambda,gamma  &!input 
+    & w,q,poro,k1,tau,n1,nz,doc,rstd,alfacw,sat,e,tempcw,niso,lambda,gamma,temp_sense  &!input 
     & ,slp,itcpt  &! output 
     )
 implicit none
 
 real(kind=8),intent(in) :: w,q,poro,tau,sat,e,tempcw,lambda,gamma
-
+logical,intent(in) :: temp_sense
 integer, intent(in) :: n1,nz,niso 
 real(kind=8),dimension(niso),intent(in) :: k1,doc,rstd,alfacw
 real(kind=8),dimension(niso),intent(out) :: slp,itcpt
@@ -147,22 +165,31 @@ real(kind=8) dp2d,mwl_Luz,r2f,d2r,r2dp,f2r,r2d,tc2d18orw,beta_eq_pack,beta_eq_sh
 real(kind=8) t2alfacw,t2beta_eq
 real(kind=8) tempcw_loc,beta_eq, beta_kin
 character (50) beta_eq_model, alfacw_model, d18orw_model
-! logical :: temp_sense = .true.
-logical :: temp_sense = .false.
+character (4) chrtemp
 !---------------------------------------------------      
 workdir = '../oiso_output'
 
 call system ('mkdir -p '//trim(adjustl(workdir)))
-
-open (11, file =trim(adjustl(workdir))//'/'//'o_iso_cw_flux_18.txt',status = 'replace')
-open (12, file =trim(adjustl(workdir))//'/'//'o_iso_cw_flux_17.txt',status = 'replace')
-open (15, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_d18.txt',status = 'replace')
-open (16, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_d18.txt',status = 'replace')
-open (17, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_d17.txt',status = 'replace')
-open (18, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_d17.txt',status = 'replace')
-open (19, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_capD17.txt',status = 'replace')
-open (20, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_capD17.txt',status = 'replace')
-
+if (.not.temp_sense) then
+    open (11, file =trim(adjustl(workdir))//'/'//'o_iso_cw_flux_18.txt',status = 'replace')
+    open (12, file =trim(adjustl(workdir))//'/'//'o_iso_cw_flux_17.txt',status = 'replace')
+    open (15, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_d18.txt',status = 'replace')
+    open (16, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_d18.txt',status = 'replace')
+    open (17, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_d17.txt',status = 'replace')
+    open (18, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_d17.txt',status = 'replace')
+    open (19, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_capD17.txt',status = 'replace')
+    open (20, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_capD17.txt',status = 'replace')
+elseif (temp_sense) then
+    write(chrtemp,'(i0)') int(tempcw)
+    open (11, file =trim(adjustl(workdir))//'/'//'o_iso_cw_flux_18_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+    open (12, file =trim(adjustl(workdir))//'/'//'o_iso_cw_flux_17_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+    open (15, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_d18_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+    open (16, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_d18_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+    open (17, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_d17_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+    open (18, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_d17_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+    open (19, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_sld_capD17_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+    open (20, file =trim(adjustl(workdir))//'/'//'o_iso_cw_prof_pw_capD17_'//trim(adjustl(chrtemp))//'.txt',status = 'replace')
+endif 
 imin = 0
    
 beta_eq_model = 'sharp16' 
@@ -183,21 +210,11 @@ do i1 = 1, n1
     dswl(2,i1) = dsw(2)
     
     if (temp_sense) then 
-        tempcw_loc = -5.0d0 + 35.0d0*(i1-1.0d0)/(n1-1.0d0)
-        dsw(1) = tc2d18orw(tempcw_loc,d18orw_model)
+        dsw(1) = dsw(1) + tc2d18orw(tempcw_loc,d18orw_model)
         dswl(1,i1) = dsw(1)
         if (dsw(1) <= -8d0) imin = i1 ! imin wants to satisfy dswl(imin) = -8     
         dsw(2) = dp2d(mwl_Luz(dsw(1),rstd(1)),rstd(2))
         dswl(2,i1) = dsw(2)
-        beta_eq = (1d0/16d0 - 1d0/17d0)/(1d0/16d0 - 1d0/18d0)
-        beta_eq = beta_eq_pack(tempcw_loc+273.15d0) ! Pack and Herwartz (2014)
-        beta_eq = t2beta_eq(tempcw_loc+273.15d0,beta_eq_model) ! Sharp et al. (2016)
-        beta_kin = beta_eq
-        beta_kin = 1d0 ! this assume kinetics of 17O/16O exchange is not different from that of 18O/16O
-        alfacw_loc(1) = t2alfacw(tempcw_loc + 273.15d0,alfacw_model)
-        alfacw_loc(2) = alfacw_loc(1)**beta_eq
-        k1_loc(1) = 10.0d0**(-8.50d0)
-        k1_loc(2) = k1_loc(1)**beta_kin
     endif 
         
     
@@ -358,12 +375,11 @@ alfacw_model = 'savin'
 d18orw_model(1) = 'bowen08'
 d18orw_model(2) = 'dansgaad64'
 
-rstd(1) = 2.0052d-3 
-rstd(2) = 3.799d-4 
+rstd(1) = rsmow_18 
+rstd(2) = rsmow_17 
 
-doc(1) = 5.7d0
-doc(2) = 2.86d0
-! doc(2) = 3.0d0 
+doc(1) = d18_mc
+doc(2) = d17_mc
 
 open (57,file='../oiso_output/GS-cw.txt',status='replace')
 
@@ -373,6 +389,7 @@ do iry = 1,nry
 
     beta_eq = t2beta_eq(tempcw_loc+273.0d0,beta_eq_model)
     beta_kin = 1d0
+    if (switch_KIE) beta_kin = beta_eq
 
     k1_loc(1) = k1
     k1_loc(2) = k1_loc(1)**beta_kin
@@ -519,12 +536,11 @@ alfacw_model = 'savin'
 d18orw_model(1) = 'bowen08'
 d18orw_model(2) = 'dansgaad64'
 
-rstd(1) = 2.0052d-3 
-rstd(2) = 3.799d-4 
+rstd(1) = rsmow_18 
+rstd(2) = rsmow_17 
 
-doc(1) = 5.7d0
-doc(2) = 2.86d0
-! doc(2) = 3.0d0 
+doc(1) = d18_mc
+doc(2) = d17_mc
 
 open (57,file='../oiso_output/d18r_cw_dyn.txt',status='replace')
 open (58,file='../oiso_output/d17r_cw_dyn.txt',status='replace')
@@ -536,6 +552,7 @@ do iry = 1,nry
 
     beta_eq = t2beta_eq(tempcw_loc+273.0d0,beta_eq_model)
     beta_kin = 1d0
+    if (switch_KIE) beta_kin = beta_eq
 
     k1_loc(1) = k1
     k1_loc(2) = k1_loc(1)**beta_kin
@@ -615,11 +632,11 @@ real(kind=8) :: dsw = 0.0d0
 real(kind=8) :: tau = 1d6
 real(kind=8) :: tempcw = 15.0d0
 real(kind=8) :: alfacw =exp(25.0d0/1d3)
-real(kind=8) :: doc = 5.7d0
+real(kind=8) :: doc = d18_mc
 real(kind=8) :: ztot = 20.0d0
 real(kind=8) :: sat = 0.50d0
 real(kind=8) :: e = 50.0d0
-real(kind=8) :: rstd = 2.0052d-3 
+real(kind=8) :: rstd = rsmow_18 
 real(kind=8) fsw,foc,frtop
 
 integer, parameter :: nz = 200
@@ -668,7 +685,7 @@ do i3 = 1, n3
             fsw = (dsw/1d3+1.0d0)*rstd/((dsw/1d3+1.0d0)*rstd+1.0d0)
             foc = (doc/1d3+1.0d0)*rstd/((doc/1d3+1.0d0)*rstd+1.0d0)
             call o_iso_cw(  &
-                & w, k1,q,tau,poro,fsw,nz,ztot,foc,rstd,alfacw,sat,e,tempcw &! input
+                & w, k1,q,tau,poro,fsw,nz,foc,rstd,alfacw,sat,e,tempcw &! input
                 & ,j1(i1,i2,i3),j2(i1,i2,i3),j3(i1,i2,i3),cdf(i1,i2,i3),shf(i1,i2,i3),dsf(i1,i2,i3),z,fr,fp,frtop   &! output
                 & ,ztot  &! inout
                 & )
@@ -945,3 +962,5 @@ if (any((/error1,error2,error3/)> tol)) then
 endif 
 
 endsubroutine o_iso_cw
+
+endmodule o_iso_cw_mod

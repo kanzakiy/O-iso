@@ -1,4 +1,8 @@
 program dsw_main
+
+use o_iso_cw_mod
+use o_iso_ha_mod
+
 implicit none
 
 call o_iso_cw_sense_dsw_prof 

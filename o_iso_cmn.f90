@@ -75,6 +75,15 @@ endfunction mwl_Luz
 
 ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+function mwl_Luz_rev(d18o,rstd,d18osw)  ! not to be used yet 
+implicit none
+real(kind=8) mwl_Luz_rev,d18o,d2r,r2dp,rstd,d18osw,intercept
+intercept = 0.528d0*r2dp(d2r(d18osw,rstd),rstd)
+mwl_Luz_rev = 0.528d0*r2dp(d2r(d18o,rstd),rstd) + 0.033d0
+endfunction mwl_Luz_rev
+
+! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 function beta_eq_pack(t)  ! equilibirum exponent for 17/16O vs. 18/16O fractionation suggested by Pack and Herwartz (2014) 
 implicit none
 real(kind=8) beta_eq_pack,t  ! t [K]

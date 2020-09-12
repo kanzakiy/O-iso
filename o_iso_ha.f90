@@ -1,11 +1,10 @@
-! program o_iso_ha_main
-! implicit none 
-
+module o_iso_ha_mod
+use o_iso_ref_mod
+implicit none 
 ! call o_iso_ha_sense_dsw_prof
 ! call o_iso_ha_sense_dsw_Phan
-
 ! endprogram o_iso_ha_main
-
+contains
 !**************************************************************************************************************************************************************
 !**************************************************************************************************************************************************************
 !**************************************************************************************************************************************************************
@@ -63,11 +62,10 @@ character (50) beta_eq_model
 character (2) isochr
 !---------------------------
 
-rsmow(1) = 2.0052d-3
-rsmow(2) = 3.799d-4 
-dmc(1) = 5.7d0
-dmc(2) = 2.86d0
-! dmc(2) = 3.0d0
+rsmow(1) = rsmow_18
+rsmow(2) = rsmow_17 
+dmc(1) = d18_mc
+dmc(2) = d17_mc
 
 k1 = k_arrhenius(kref,E1,T1) 
 k2 = k_arrhenius(kref,E2,T2) 
@@ -87,6 +85,7 @@ L_in = (/L1,L2,L3/)
 beta_eq_model = 'sharp16'
 beta_eq(:) = t2beta_eq(T_in(:)+273d0, beta_eq_model)
 beta_kin(:) = 1d0
+if (switch_KIE) beta_kin(:) = beta_eq(:)
 
 k_in(2,:) = k_in(1,:)**beta_kin(:)
 alpha_in(2,:) = alpha_in(1,:)**beta_eq(:)
@@ -251,11 +250,10 @@ rco2(:) = mry(18,:) ! co2
 temp(:) = mry(19,:) ! surface temperature 
 tp(:) = mry(1,:)  ! age
 
-rsmow(1) = 2.0052d-3
-rsmow(2) = 3.799d-4 
-dmc(1) = 5.7d0
-dmc(2) = 2.86d0
-! dmc(2) = 3.0d0
+rsmow(1) = rsmow_18
+rsmow(2) = rsmow_17 
+dmc(1) = d18_mc
+dmc(2) = d17_mc
 
 open (57,file='../oiso_output/GS-oca.txt',status='replace')
 
@@ -291,6 +289,7 @@ do iry = 1, nry
     beta_eq_model = 'sharp16'
     beta_eq(:) = t2beta_eq(T_in(:)+273d0, beta_eq_model)
     beta_kin(:) = 1d0
+    if (switch_KIE) beta_kin(:) = beta_eq(:)
     
     k_in(2,:) = k_in(1,:)**beta_kin(:)
     alpha_in(2,:) = alpha_in(1,:)**beta_eq(:)
@@ -421,11 +420,10 @@ rco2(:) = mry(18,:) ! co2
 temp(:) = mry(19,:) ! surface temperature 
 tp(:) = mry(1,:)  ! age
 
-rsmow(1) = 2.0052d-3
-rsmow(2) = 3.799d-4 
-dmc(1) = 5.7d0
-dmc(2) = 2.86d0
-! dmc(2) = 3.0d0
+rsmow(1) = rsmow_18
+rsmow(2) = rsmow_17 
+dmc(1) = d18_mc
+dmc(2) = d17_mc
 
 open (57,file='../oiso_output/d18rp_ha_1_dyn.txt',status='replace')
 open (58,file='../oiso_output/d17rp_ha_1_dyn.txt',status='replace')
@@ -471,6 +469,7 @@ do iry = 1, nry
     beta_eq_model = 'sharp16'
     beta_eq(:) = t2beta_eq(T_in(:)+273d0, beta_eq_model)
     beta_kin(:) = 1d0
+    if (switch_KIE) beta_kin(:) = beta_eq(:)
     
     k_in(2,:) = k_in(1,:)**beta_kin(:)
     alpha_in(2,:) = alpha_in(1,:)**beta_eq(:)
@@ -1119,4 +1118,5 @@ if (abs((jocn2-(jocn+jocn3))/jocn2) > 1d-3) then
 endif 
 
 endsubroutine o_iso_ha
-    
+
+endmodule o_iso_ha_mod
